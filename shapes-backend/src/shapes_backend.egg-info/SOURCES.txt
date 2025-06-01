@@ -1,0 +1,10 @@
+README.md
+pyproject.toml
+src/__init__.py
+src/model_handler.py
+src/shapes_backend.egg-info/PKG-INFO
+src/shapes_backend.egg-info/SOURCES.txt
+src/shapes_backend.egg-info/dependency_links.txt
+src/shapes_backend.egg-info/requires.txt
+src/shapes_backend.egg-info/top_level.txt
+test/test_model_handler.py

@@ -30,6 +30,27 @@ export default function DrawingCanvas() {
         });
   };
 
+  const handleTrain = async (category) => {
+    const image_data = await canvasRef.current.exportImage("png");
+
+    const body = {
+      image_b64: image_data.split(",")[1],
+      category: category,
+    };
+
+    // Make POST request to send data
+    axios
+        .post("http://127.0.0.1:8000/train", body)
+        .then((response) => {
+            console.log(response.data);
+            // setShape(response.data.label)
+            handleClear();
+        })
+        .catch((err) => {
+            console.log("Error creating post");
+        });
+  };
+
   const handleSave = async () => {
     const image_data = await canvasRef.current.exportImage("png");
 
@@ -61,16 +82,24 @@ export default function DrawingCanvas() {
         style={styles}
         width="400px"
         height="400px"
-        strokeWidth={10}
+        strokeWidth={15}
         strokeColor="black"
       />
       <div style={{ marginTop: "1rem" }}>
-        <button onClick={handlePredict}>Predict</button>
+        <button onClick={handlePredict}>
+          Predict
+        </button>
         <button onClick={handleSave} style={{ marginLeft: "1rem" }}>
           Save
         </button>
         <button onClick={handleClear} style={{ marginLeft: "1rem" }}>
           Clear
+        </button>
+        <button onClick={() => handleTrain(0)} style={{ marginLeft: "1rem" }}>
+          Train 0
+        </button>
+        <button onClick={() => handleTrain(1)} style={{ marginLeft: "1rem" }}>
+          Train 1
         </button>
         <div>
           {shape}

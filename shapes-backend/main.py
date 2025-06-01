@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from model_handler import PerfectModel
+from model_handler import ModelHandler
 from io import BytesIO
 import base64
 from PIL import Image
@@ -11,10 +11,14 @@ import uuid
 class PredictionRequest(BaseModel):
     image_b64: str
 
+class TrainRequest(BaseModel):
+    image_b64: str
+    category: int
+
 
 app = FastAPI()
 
-perfect_model = PerfectModel()
+model_handler = ModelHandler()
 
 origins = ["*"]
 
@@ -34,18 +38,14 @@ async def root():
 
 @app.post("/predict")
 async def predict(request: PredictionRequest):
-    encoded_string = base64.b64decode(request.image_b64)
-    image_data = Image.open(BytesIO(encoded_string))
-    image_data.save(f"./images/temp/{uuid.uuid1()}.png")
-    prediction = perfect_model.classify(image_data)
-    print(prediction)
-    # return {"message": "Hello World"}'
-    return prediction
+    return model_handler.predict(**dict(request))
 
 
 @app.post("/save")
-async def predict(request: PredictionRequest):
-    encoded_string = base64.b64decode(request.image_b64)
-    image_data = Image.open(BytesIO(encoded_string))
-    image_data.save(f"./images/temp/{uuid.uuid1()}.png")
-    return {}
+async def save(request: PredictionRequest):
+    return model_handler.save(**dict(request))
+
+
+@app.post("/train")
+async def save(request: TrainRequest):
+    return model_handler.train(**dict(request))

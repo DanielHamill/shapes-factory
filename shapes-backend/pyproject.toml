@@ -15,5 +15,9 @@ dependencies = [
     "requests>=2.32.3",
     "torch>=2.7.0",
     "torchvision>=0.22.0",
+    "tqdm>=4.67.1",
     "transformers>=4.52.3",
 ]
+
+[tool.uv]
+package = true
