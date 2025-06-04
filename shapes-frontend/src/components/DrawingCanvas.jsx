@@ -1,6 +1,7 @@
 import React, { useRef, useState } from "react";
 import { ReactSketchCanvas } from "react-sketch-canvas";
 import axios from 'axios';
+import ProgressBar from "@ramonak/react-progress-bar";
 
 const styles = {
   border: "0.0625rem solid #9c9c9c",
@@ -10,8 +11,10 @@ const styles = {
 export default function DrawingCanvas() {
   const canvasRef = useRef();
   const [shape, setShape] = useState("")
+  const [confidence, setConfidence] = useState(0)
 
   const handlePredict = async () => {
+    setShape("...");
     const image_data = await canvasRef.current.exportImage("png");
 
     const body = {
@@ -24,6 +27,7 @@ export default function DrawingCanvas() {
         .then((response) => {
             console.log(response.data.label);
             setShape(response.data.label)
+            setConfidence(response.data.confidence)
         })
         .catch((err) => {
             console.log("Error creating post");
@@ -85,6 +89,13 @@ export default function DrawingCanvas() {
         strokeWidth={15}
         strokeColor="black"
       />
+      <div>
+        I'm not very confident in this prediction yet :(
+      </div>
+      <div>
+        Confidence:
+        <ProgressBar completed={Math.round(confidence)} maxCompleted={100} width="400px"/>
+      </div>
       <div style={{ marginTop: "1rem" }}>
         <button onClick={handlePredict}>
           Predict
@@ -102,7 +113,7 @@ export default function DrawingCanvas() {
           Train 1
         </button>
         <div>
-          {shape}
+          Prediction: {shape}
         </div>
       </div>
     </div>
