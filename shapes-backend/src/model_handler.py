@@ -115,8 +115,8 @@ class DenseModel(L.LightningModule):
             transforms.ToTensor(),                        # Converts        to tensor (shape: [1, H, W])
             # transforms.Normalize(mean=[0.5], std=[0.5])   # Normalize for 1 channel
         ])
-        val_dataset = datasets.ImageFolder(root="./images/shapes_dataset/test", transform=val_transform)
-        self.val_dataset = DataLoader(val_dataset, batch_size=4, shuffle=False, num_workers=3)
+        # val_dataset = datasets.ImageFolder(root="./images/shapes_dataset/test", transform=val_transform)
+        # self.val_dataset = DataLoader(val_dataset, batch_size=4, shuffle=False, num_workers=3)
 
     def forward(self, x):
         x = x.view(x.size(0), -1)
@@ -234,7 +234,7 @@ class DenseModel(L.LightningModule):
                 [self._get_batch_from_image(Image.open(BytesIO(base64.b64decode(image_b64))), category, n=batch_size_per_image)]
             batch = self._merge_batches(batches)
             self.online_training_step(batch)
-        self.run_validation(self.val_dataset)
+        # self.run_validation(self.val_dataset)
         self.seen[category].append(image_b64)
         self.val_step_counter += 1
         
@@ -255,12 +255,14 @@ class ModelHandler:
             prediction = torch.softmax(self.model(model_transforms["val"](image_data))[0], dim=-1)
         print(prediction)
         label = torch.argmax(prediction).tolist()
+        confidence = 200*(float(torch.max(prediction))-0.5)
         print(label)
-        loss, acc = self.model.run_validation(self.model.val_dataset)
-        print("loss", loss)
-        print("accuracy", acc)
-        # return {"message": "Hello World"}'
-        return {"label": label}
+        print(confidence)
+        # TODO: change confidence computation if not 2 classes
+        return {
+            "label": label,
+            "confidence": confidence,
+        }
 
     def benchmark(self, image_b64):
         encoded_string = base64.b64decode(image_b64)
