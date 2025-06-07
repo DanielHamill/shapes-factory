@@ -29,31 +29,6 @@ labels = [
     "Triangle ▲",
 ]
 
-model_transforms = {
-    "train": transforms.Compose([
-        transforms.Grayscale(num_output_channels=1),  # Convert to grayscale
-        transforms.RandomInvert(p=1.0),
-        transforms.RandomAffine(
-            degrees=0,
-            translate=(0.2, 0.2),
-            scale=(1, 1.25),
-            shear=3,
-            fill=255,
-        ),
-        transforms.Resize((20, 20)),                # Resize to fixed size
-        transforms.ToTensor(),                        # Converts to tensor (shape: [1, H, W])
-        # transforms.Normalize(mean=[0.5], std=[0.5])   # Normalize for 1 channel
-    ]),
-
-    "val": transforms.Compose([
-        transforms.Grayscale(num_output_channels=1),  # Convert to grayscale
-        transforms.RandomInvert(p=1.0),
-        transforms.Resize((20, 20)),                # Resize to fixed size
-        transforms.ToTensor(),                        # Converts        to tensor (shape: [1, H, W])
-        # transforms.Normalize(mean=[0.5], std=[0.5])   # Normalize for 1 channel
-    ])
-}
-
 
 class PerfectModel:
 
