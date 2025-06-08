@@ -15,6 +15,7 @@ import base64
 from PIL import Image
 import uuid
 import random
+from image_utils import model_transforms
 
 
 # geometric shapes classifier from: https://huggingface.co/prithivMLmods/Geometric-Shapes-Classification
@@ -83,15 +84,8 @@ class DenseModel(L.LightningModule):
         self.batch_size = batch_size,
         self.num_batches = num_batches
 
-        val_transform = transforms.Compose([
-            transforms.Grayscale(num_output_channels=1),  # Convert to grayscale
-            transforms.RandomInvert(p=1.0),
-            transforms.Resize((20, 20)),                # Resize to fixed size
-            transforms.ToTensor(),                        # Converts        to tensor (shape: [1, H, W])
-            # transforms.Normalize(mean=[0.5], std=[0.5])   # Normalize for 1 channel
-        ])
-        # val_dataset = datasets.ImageFolder(root="./images/shapes_dataset/test", transform=val_transform)
-        # self.val_dataset = DataLoader(val_dataset, batch_size=4, shuffle=False, num_workers=3)
+        val_dataset = datasets.ImageFolder(root="./images/shapes_dataset/test", transform=model_transforms["val"])
+        self.val_dataset = DataLoader(val_dataset, batch_size=4, shuffle=False, num_workers=3)
 
     def forward(self, x):
         x = x.view(x.size(0), -1)
@@ -113,41 +107,60 @@ class DenseModel(L.LightningModule):
         x = x.view(x.size(0), -1)
         y_hat = self(x)
         loss = self.loss_fn(y_hat, y)
-        acc = self.acc(y_hat, y)
 
-        # self.log("val_loss_epoch", loss, on_step=False, on_epoch=True) # Logs average loss at the end of each epoch
-        # self.log("val_acc_epoch", acc, on_step=False, on_epoch=True) # Logs average loss at the end of each epoch
+        mask_0 = (y == 0)
+        mask_1 = (y == 1)
+
+        y_hat_0 = y_hat[mask_0]
+        y_hat_1 = y_hat[mask_1]
+        y_0 = y[mask_0]
+        y_1 = y[mask_1]
         
-        # self.log("val_loss", loss, on_step=False, on_epoch=True) # Logs average loss at the end of each epoch
-        # self.log("val_acc", acc, on_step=False, on_epoch=True) # Logs average loss at the end of each epoch
-        # mlflow.log_metric("val_loss", loss, )
-        return loss, acc
+        acc = self.acc(y_hat, y)
+        if len(y_0) != 0:
+            acc0 = self.acc(y_hat_0, y_0)
+        else:
+            acc0 = np.nan
+
+        if len(y_1) != 0:
+            acc1 = self.acc(y_hat_1, y_1)
+        else:
+            acc1 = np.nan
+
+        return loss, (acc, acc0, acc1)
     
     def run_validation(self, val_dataloader):
         self.eval()
         device = next(self.parameters()).device
 
-        total_loss = 0.0
-        total_acc = 0.0
+        total_loss = []
+        acc_all = []
+        acc0_all = []
+        acc1_all = []
         count = 0
 
         with torch.no_grad():
             for batch_idx, batch in enumerate(val_dataloader):
                 batch = tuple(t.to(device) for t in batch)
-                loss, acc = self.validation_step(batch, batch_idx)
-                total_loss += loss
-                total_acc += acc
+                loss, (acc, acc0, acc1) = self.validation_step(batch, batch_idx)
+                total_loss.append(loss)
+                acc_all.append(acc)
+                acc0_all.append(acc0)
+                acc1_all.append(acc1)
                 count += 1
 
-        avg_loss = total_loss / count
-        avg_acc = total_acc / count
+        avg_loss = np.mean(total_loss)
+
+        avg_acc = np.mean(acc_all)  
+        avg_acc0 = np.nanmean(acc0_all)
+        avg_acc1 = np.nanmean(acc1_all)
 
         # Log to MLflow
         mlflow.log_metric("val_loss", avg_loss, step=self.val_step_counter)
         mlflow.log_metric("val_accuracy", avg_acc, step=self.val_step_counter)
         self.val_step_counter += 1
 
-        return avg_loss, avg_acc
+        return avg_loss, (avg_acc, avg_acc0, avg_acc1)
     
     def test_step(self, batch, batch_idx):
         x, y = batch
@@ -228,12 +241,16 @@ class ModelHandler:
         # image_data.save(f"./images/temp/{uuid.uuid1()}.png")
         with torch.no_grad():
             prediction = torch.softmax(self.model(model_transforms["val"](image_data))[0], dim=-1)
-        print(prediction)
         label = torch.argmax(prediction).tolist()
         confidence = 200*(float(torch.max(prediction))-0.5)
-        print(label)
-        print(confidence)
         # TODO: change confidence computation if not 2 classes
+
+        # loss, (acc, acc0, acc1) = self.model.run_validation(self.model.val_dataset)
+        # print("loss", loss)
+        # print("accuracy", acc)
+        # print("accuracy 0", acc0)
+        # print("accuracy 1", acc1)
+        print("prediction", prediction)
         return {
             "label": label,
             "confidence": confidence,
@@ -248,9 +265,9 @@ class ModelHandler:
         print(prediction)
         label = torch.argmax(prediction).tolist()
         print(label)
-        loss, acc = self.model.run_validation(self.model.val_dataset)
-        print("loss", loss)
-        print("accuracy", acc)
+        # loss, acc = self.model.run_validation(self.model.val_dataset)
+        # print("loss", loss)
+        # print("accuracy", acc)
         # return {"message": "Hello World"}'
         return {"label": label}
 

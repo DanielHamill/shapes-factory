@@ -60,10 +60,10 @@ model_transforms = {
         CenterGreyscaleImage(),
         transforms.RandomAffine(
             degrees=0,
-            translate=(0.2, 0.2),
-            scale=(1, 1.25),
+            # translate=(0.2, 0.2),
+            scale=(0.8, 1.2),
             shear=3,
-            fill=255,
+            fill=0,
         ),
         transforms.Resize((20, 20)),                # Resize to fixed size
         transforms.ToTensor(),                        # Converts to tensor (shape: [1, H, W])
@@ -72,6 +72,7 @@ model_transforms = {
     "val": transforms.Compose([
         transforms.Grayscale(num_output_channels=1),  # Convert to grayscale
         transforms.RandomInvert(p=1.0),
+        CenterGreyscaleImage(),
         transforms.Resize((20, 20)),                # Resize to fixed size
         transforms.ToTensor(),                        # Converts        to tensor (shape: [1, H, W])
     ])
