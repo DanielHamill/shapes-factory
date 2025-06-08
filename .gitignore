@@ -1,0 +1,16 @@
+# backend stuff
+shapes-backend/images
+shapes-backend/ml-runs
+shapes-backend/mlruns
+shapes-backend/lightning_logs
+shapes-backend/.venv
+
+# python
+shapes-backend/__pycache__
+shapes-backend/.python-version
+
+# react
+shapes-frontend/node_modules
+shapes-frontend/build
+shapes-frontend/dist
+
