@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
+import { HashRouter } from 'react-router-dom';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
@@ -10,6 +11,11 @@ root.render(
     <App />
   </React.StrictMode>
 );
+// root.render((
+//    <HashRouter basename={process.env.PUBLIC_URL}>
+//      <App />
+//    </HashRouter>
+// ))  
 
 // If you want to start measuring performance in your app, pass a function
 // to log results (for example: reportWebVitals(console.log))

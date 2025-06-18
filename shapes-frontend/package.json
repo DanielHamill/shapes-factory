@@ -1,7 +1,8 @@
 {
   "name": "shapes-frontend",
   "version": "0.1.0",
-  "private": true,
+  "private": false,
+  "homepage": "https://DanielHamill.github.io/shapes-factory",
   "dependencies": {
     "@ramonak/react-progress-bar": "^5.4.0",
     "@testing-library/dom": "^10.4.0",
@@ -11,6 +12,7 @@
     "axios": "^1.9.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "react-router-dom": "^7.6.2",
     "react-scripts": "5.0.1",
     "react-sketch-canvas": "^6.2.0",
     "web-vitals": "^2.1.4"
@@ -43,8 +45,5 @@
   },
   "devDependencies": {
     "gh-pages": "^6.3.0"
-  },
-  "properties": {
-    "homepage": "http://DanielHamill.github.io/shapes-factory"
   }
 }
