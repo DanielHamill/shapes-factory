@@ -1,22 +1,26 @@
+import base64
 import os
-from transformers import AutoImageProcessor
-from transformers import SiglipForImageClassification
-import torch
-from torch import nn
-import numpy as np
+import random
+import uuid
+from io import BytesIO
+from typing import Dict
+import asyncio
+
 import lightning as L
-from torchvision import transforms
-from torchvision import datasets, transforms
+import mlflow
+import numpy as np
+import torch
+from PIL import Image
+from torch import nn
 from torch.utils.data import DataLoader
 from torchmetrics.classification import Accuracy
-import mlflow
-from io import BytesIO
-import base64
-from PIL import Image
-import uuid
-import random
+from torchvision import datasets, transforms
+from transformers import AutoImageProcessor, SiglipForImageClassification
+
 from image_utils import model_transforms
 
+MODEL_LIFETIME = 10 * 60
+# MODEL_LIFETIME = 10 
 
 # geometric shapes classifier from: https://huggingface.co/prithivMLmods/Geometric-Shapes-Classification
 labels = [
@@ -59,33 +63,36 @@ class PerfectModel:
 class DenseModel(L.LightningModule):
 
     def __init__(
-            self, 
-            image_size, 
-            hidden_layer1_size, 
-            output_size,
-            additional_imgs_during_training = 5,
-            batch_size = 500,
-            num_batches = 1,
-        ):
+        self,
+        image_size,
+        hidden_layer1_size,
+        output_size,
+        additional_imgs_during_training=5,
+        batch_size=500,
+        num_batches=1,
+    ):
         super().__init__()
         self.model = nn.Sequential(
             nn.Linear(image_size * image_size, hidden_layer1_size),
-            nn.ReLU(), 
+            nn.ReLU(),
             nn.Dropout(p=0.2),
             nn.Linear(hidden_layer1_size, output_size),
-
         )
         self.loss_fn = nn.CrossEntropyLoss()
         self.acc = Accuracy(task="multiclass", num_classes=output_size)
         self.automatic_optimization = False
         self.val_step_counter = 0
-        self.seen = [[],[]]
+        self.seen = [[], []]
         self.additional_imgs_during_training = additional_imgs_during_training
-        self.batch_size = batch_size,
+        self.batch_size = (batch_size,)
         self.num_batches = num_batches
 
-        val_dataset = datasets.ImageFolder(root="./images/shapes_dataset/test", transform=model_transforms["val"])
-        self.val_dataset = DataLoader(val_dataset, batch_size=4, shuffle=False, num_workers=3)
+        val_dataset = datasets.ImageFolder(
+            root="./images/shapes_dataset/test", transform=model_transforms["val"]
+        )
+        self.val_dataset = DataLoader(
+            val_dataset, batch_size=4, shuffle=False, num_workers=3
+        )
 
     def forward(self, x):
         x = x.view(x.size(0), -1)
@@ -101,21 +108,21 @@ class DenseModel(L.LightningModule):
         # self.log("train_loss_epoch", loss, on_step=False, on_epoch=True) # Logs average loss at the end of each epoch
         # self.log("train_acc_epoch", acc, on_step=False, on_epoch=True) # Logs average loss at the end of each epoch
         return loss
-    
+
     def validation_step(self, batch, batch_idx):
         x, y = batch
         x = x.view(x.size(0), -1)
         y_hat = self(x)
         loss = self.loss_fn(y_hat, y)
 
-        mask_0 = (y == 0)
-        mask_1 = (y == 1)
+        mask_0 = y == 0
+        mask_1 = y == 1
 
         y_hat_0 = y_hat[mask_0]
         y_hat_1 = y_hat[mask_1]
         y_0 = y[mask_0]
         y_1 = y[mask_1]
-        
+
         acc = self.acc(y_hat, y)
         if len(y_0) != 0:
             acc0 = self.acc(y_hat_0, y_0)
@@ -128,7 +135,7 @@ class DenseModel(L.LightningModule):
             acc1 = np.nan
 
         return loss, (acc, acc0, acc1)
-    
+
     def run_validation(self, val_dataloader):
         self.eval()
         device = next(self.parameters()).device
@@ -151,7 +158,7 @@ class DenseModel(L.LightningModule):
 
         avg_loss = np.mean(total_loss)
 
-        avg_acc = np.mean(acc_all)  
+        avg_acc = np.mean(acc_all)
         avg_acc0 = np.nanmean(acc0_all)
         avg_acc1 = np.nanmean(acc1_all)
 
@@ -161,7 +168,7 @@ class DenseModel(L.LightningModule):
         self.val_step_counter += 1
 
         return avg_loss, (avg_acc, avg_acc0, avg_acc1)
-    
+
     def test_step(self, batch, batch_idx):
         x, y = batch
         x = x.view(x.size(0), -1)
@@ -169,18 +176,22 @@ class DenseModel(L.LightningModule):
         loss = self.loss_fn(y_hat, y)
         acc = self.acc(y_hat, y)
 
-        self.log("test_loss_epoch", loss, on_step=False, on_epoch=True) # Logs average loss at the end of each epoch
-        self.log("test_acc_epoch", acc, on_step=False, on_epoch=True) # Logs average loss at the end of each epoch
+        self.log(
+            "test_loss_epoch", loss, on_step=False, on_epoch=True
+        )  # Logs average loss at the end of each epoch
+        self.log(
+            "test_acc_epoch", acc, on_step=False, on_epoch=True
+        )  # Logs average loss at the end of each epoch
         return loss
-    
+
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=0.001)
-    
+
     def _get_batch_from_image(self, image, category, n=100):
         x = torch.stack([model_transforms["train"](image) for _ in range(n)])
         y = torch.full((n,), category, dtype=torch.long)
         return x, y
-    
+
     def _merge_batches(self, batches):
         xs, ys = zip(*batches)  # unzip into two lists
         merged_x = torch.cat(xs, dim=0)
@@ -196,17 +207,25 @@ class DenseModel(L.LightningModule):
         optimizer.zero_grad()
 
     def _get_additional_images(self, category):
-            
+
         other = 1 - category
 
         # if len(seen[other]) == 0:
         #     return None
-        
+
         other_num_imgs = self.additional_imgs_during_training // 2 + 1
         same_num_imgs = self.additional_imgs_during_training // 2
 
-        other_imgs = self.seen[other] if len(self.seen[other]) <= other_num_imgs else random.sample(self.seen[other], k=other_num_imgs)
-        same_imgs = self.seen[category] if len(self.seen[category]) <= same_num_imgs else random.sample(self.seen[category],k=same_num_imgs)
+        other_imgs = (
+            self.seen[other]
+            if len(self.seen[other]) <= other_num_imgs
+            else random.sample(self.seen[other], k=other_num_imgs)
+        )
+        same_imgs = (
+            self.seen[category]
+            if len(self.seen[category]) <= same_num_imgs
+            else random.sample(self.seen[category], k=same_num_imgs)
+        )
         return other_imgs, same_imgs
 
     def train_online(self, image_b64, category):
@@ -214,35 +233,83 @@ class DenseModel(L.LightningModule):
         additional_imgs = 3
         batch_size = 500
         num_batches = 1
-        batch_size_per_image = batch_size // (additional_imgs+1)
+        batch_size_per_image = batch_size // (additional_imgs + 1)
         other_imgs, same_imgs = self._get_additional_images(category)
         for _ in range(num_batches):
-            batches = [self._get_batch_from_image(Image.open(BytesIO(base64.b64decode(image))), other, n=batch_size_per_image) for image in other_imgs] + \
-                [self._get_batch_from_image(Image.open(BytesIO(base64.b64decode(image))), category, n=batch_size_per_image) for image in same_imgs] + \
-                [self._get_batch_from_image(Image.open(BytesIO(base64.b64decode(image_b64))), category, n=batch_size_per_image)]
+            batches = (
+                [
+                    self._get_batch_from_image(
+                        Image.open(BytesIO(base64.b64decode(image))),
+                        other,
+                        n=batch_size_per_image,
+                    )
+                    for image in other_imgs
+                ]
+                + [
+                    self._get_batch_from_image(
+                        Image.open(BytesIO(base64.b64decode(image))),
+                        category,
+                        n=batch_size_per_image,
+                    )
+                    for image in same_imgs
+                ]
+                + [
+                    self._get_batch_from_image(
+                        Image.open(BytesIO(base64.b64decode(image_b64))),
+                        category,
+                        n=batch_size_per_image,
+                    )
+                ]
+            )
             batch = self._merge_batches(batches)
             self.online_training_step(batch)
         # self.run_validation(self.val_dataset)
         self.seen[category].append(image_b64)
         self.val_step_counter += 1
-        
+
 
 class ModelHandler:
 
-    def __init__(self):
-        self.dense_model = DenseModel(image_size=20, hidden_layer1_size=200, output_size=2)
-        # self.perfect_model = PerfectModel()
-        self.model = self.dense_model
-        print("Loaded all models.")
+    models: Dict[str, L.LightningModule]
 
-    def predict(self, image_b64):
+    def __init__(self):
+        # self.dense_model = DenseModel(
+        #     image_size=20, hidden_layer1_size=200, output_size=2
+        # )
+        # self.perfect_model = PerfectModel()
+        # self.model = self.dense_model
+        print("Loaded all models.")
+        self.models = {}
+
+    def _get_model(self, user_id):
+        if user_id in self.models:
+            return self.models[user_id]
+        else:
+            print(f"Creating new model for user {user_id}")
+            self.models[user_id] = DenseModel(
+                image_size=20, hidden_layer1_size=200, output_size=2
+            )
+            asyncio.create_task(self.delete_model_after_delay(user_id, MODEL_LIFETIME))
+            return self.models[user_id]
+
+    async def delete_model_after_delay(self, user_id: str, delay: int):
+        await asyncio.sleep(delay)
+        if user_id in self.models:
+            print(f"Deleting model for user {user_id}")
+            del self.models[user_id]
+        else:
+            raise ValueError("Tried to delete a model that doesn't exist.")
+
+    def predict(self, image_b64, user_id):
         encoded_string = base64.b64decode(image_b64)
         image_data = Image.open(BytesIO(encoded_string))
-        # image_data.save(f"./images/temp/{uuid.uuid1()}.png")
+        model = self._get_model(user_id)
         with torch.no_grad():
-            prediction = torch.softmax(self.model(model_transforms["val"](image_data))[0], dim=-1)
+            prediction = torch.softmax(
+                model(model_transforms["val"](image_data))[0], dim=-1
+            )
         label = torch.argmax(prediction).tolist()
-        confidence = 200*(float(torch.max(prediction))-0.5)
+        confidence = 200 * (float(torch.max(prediction)) - 0.5)
         # TODO: change confidence computation if not 2 classes
 
         # loss, (acc, acc0, acc1) = self.model.run_validation(self.model.val_dataset)
@@ -261,7 +328,9 @@ class ModelHandler:
         image_data = Image.open(BytesIO(encoded_string))
         # image_data.save(f"./images/temp/{uuid.uuid1()}.png")
         with torch.no_grad():
-            prediction = torch.softmax(self.model(model_transforms["val"](image_data))[0], dim=-1)
+            prediction = torch.softmax(
+                self.model(model_transforms["val"](image_data))[0], dim=-1
+            )
         print(prediction)
         label = torch.argmax(prediction).tolist()
         print(label)
@@ -279,5 +348,6 @@ class ModelHandler:
         image_data.save(f"./images/temp/{uuid.uuid1()}.png")
         return {}
 
-    def train(self, image_b64, category):
-        self.model.train_online(image_b64, category)
+    def train(self, image_b64, category, user_id):
+        model = self._get_model(user_id)
+        model.train_online(image_b64, category)

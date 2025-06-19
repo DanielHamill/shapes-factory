@@ -10,10 +10,12 @@ import uuid
 
 class PredictionRequest(BaseModel):
     image_b64: str
+    user_id: str
 
 class TrainRequest(BaseModel):
     image_b64: str
     category: int
+    user_id: str
 
 
 app = FastAPI()
