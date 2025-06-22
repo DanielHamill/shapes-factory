@@ -1042,7 +1042,7 @@ name = "gunicorn"
 version = "23.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "packaging", marker = "sys_platform != 'win32'" },
+    { name = "packaging" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/34/72/9614c465dc206155d93eff0ca20d42e1e35afc533971379482de953521a4/gunicorn-23.0.0.tar.gz", hash = "sha256:f014447a0101dc57e294f6c18ca6b40227a4c90e9bdb586042628030cba004ec", size = 375031 }
 wheels = [
@@ -3075,6 +3075,7 @@ dependencies = [
     { name = "fastapi" },
     { name = "fastapi-cli" },
     { name = "gradio" },
+    { name = "gunicorn" },
     { name = "ipykernel" },
     { name = "lightning" },
     { name = "mlflow" },
@@ -3099,6 +3100,7 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.115.12" },
     { name = "fastapi-cli", specifier = ">=0.0.7" },
     { name = "gradio", specifier = ">=5.31.0" },
+    { name = "gunicorn", specifier = ">=23.0.0" },
     { name = "ipykernel", specifier = ">=6.29.5" },
     { name = "lightning", specifier = ">=2.5.1.post0" },
     { name = "mlflow", specifier = ">=2.22.0" },
