@@ -1,4 +1,5 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
+import { getOrCreateUserId } from "../userId";
 import { ReactSketchCanvas } from "react-sketch-canvas";
 import axios from 'axios';
 import ProgressBar from "@ramonak/react-progress-bar";
@@ -12,6 +13,13 @@ export default function DrawingCanvas() {
   const canvasRef = useRef();
   const [shape, setShape] = useState("")
   const [confidence, setConfidence] = useState(0)
+  const [userId, setUserId] = useState()
+
+  useEffect(() => {
+    const userId = getOrCreateUserId();
+    console.log("Visitor ID:", userId);
+    setUserId(userId)
+  }, [])
 
   const handlePredict = async () => {
     setShape("...");
@@ -19,18 +27,28 @@ export default function DrawingCanvas() {
 
     const body = {
       image_b64: image_data.split(",")[1],
+      user_id: userId,
     };
 
     // Make POST request to send data
     axios
-        .post("http://127.0.0.1:8000/predict", body)
+        .post("http://127.0.0.1:8080/predict", body)
         .then((response) => {
             console.log(response.data.label);
             setShape(response.data.label)
             setConfidence(response.data.confidence)
         })
-        .catch((err) => {
-            console.log("Error creating post");
+        .catch((error) => {
+            console.error('Error:', error.message);
+            try {
+              // Attempt to parse the error message if it's a stringified JSON
+              const errorDetails = JSON.parse(error.message);
+              console.log('422 Error Details:', errorDetails);
+              // You can then access specific properties of the errorDetails object
+              // For example: errorDetails.message, errorDetails.errors, etc.
+            } catch (parseError) {
+              console.log('Could not parse error message as JSON:', parseError);
+            }
         });
   };
 
@@ -40,18 +58,28 @@ export default function DrawingCanvas() {
     const body = {
       image_b64: image_data.split(",")[1],
       category: category,
+      user_id: userId,
     };
 
     // Make POST request to send data
     axios
-        .post("http://127.0.0.1:8000/train", body)
+        .post("http://127.0.0.1:8080/train", body)
         .then((response) => {
             console.log(response.data);
             // setShape(response.data.label)
             handleClear();
         })
-        .catch((err) => {
-            console.log("Error creating post");
+        .catch((error) => {
+            console.error('Error:', error.message);
+            try {
+              // Attempt to parse the error message if it's a stringified JSON
+              const errorDetails = JSON.parse(error.message);
+              console.log('422 Error Details:', errorDetails);
+              // You can then access specific properties of the errorDetails object
+              // For example: errorDetails.message, errorDetails.errors, etc.
+            } catch (parseError) {
+              console.log('Could not parse error message as JSON:', parseError);
+            }
         });
   };
 
@@ -64,7 +92,7 @@ export default function DrawingCanvas() {
 
     // Make POST request to send data
     axios
-        .post("http://127.0.0.1:8000/save", body)
+        .post("http://127.0.0.1:8080/save", body)
         .then((response) => {
             console.log(response.data.label);
             setShape(response.data.label);
