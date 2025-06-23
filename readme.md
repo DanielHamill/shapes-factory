@@ -1,6 +1,6 @@
-WIP
+This is still very much a work in progress.
 
-Train an AI to recognize shapes using online learning
+Train an AI to recognize shapes using online learning. Try it [here](https://danielhamill.github.io/shapes-factory/).
 
 Quick start (for development)
 
