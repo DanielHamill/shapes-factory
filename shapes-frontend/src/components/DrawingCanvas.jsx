@@ -32,7 +32,7 @@ export default function DrawingCanvas() {
 
     // Make POST request to send data
     axios
-        .post("http://127.0.0.1:8080/predict", body)
+        .post(`${process.env.REACT_APP_BACKEND_URL}/predict`, body)
         .then((response) => {
             console.log(response.data.label);
             setShape(response.data.label)
@@ -63,7 +63,7 @@ export default function DrawingCanvas() {
 
     // Make POST request to send data
     axios
-        .post("http://127.0.0.1:8080/train", body)
+        .post(`${process.env.REACT_APP_BACKEND_URL}/train`, body)
         .then((response) => {
             console.log(response.data);
             // setShape(response.data.label)
@@ -92,7 +92,7 @@ export default function DrawingCanvas() {
 
     // Make POST request to send data
     axios
-        .post("http://127.0.0.1:8080/save", body)
+        .post(`${process.env.REACT_APP_BACKEND_URL}/save`, body)
         .then((response) => {
             console.log(response.data.label);
             setShape(response.data.label);
