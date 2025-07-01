@@ -140,6 +140,9 @@ export default function DrawingCanvas() {
         <button onClick={() => handleTrain(1)} style={{ marginLeft: "1rem" }}>
           Train 1
         </button>
+         <button onClick={() => handleTrain(2)} style={{ marginLeft: "1rem" }}>
+          Train 2
+        </button>
         <div>
           Prediction: {shape}
         </div>

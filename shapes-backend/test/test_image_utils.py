@@ -1,4 +1,4 @@
-from image_utils import CenterGreyscaleImage
+from image_utils import CenterGreyscaleImage, get_batch_from_images
 from torchvision import transforms
 from torchvision.transforms import v2
 from PIL import Image, ImageDraw
@@ -70,5 +70,15 @@ def test_img_same_after_centering():
     print(np.mean(np.array(img_tfm2)))
 
 
+def test_get_batch_from_images():
+    images = [
+        Image.open("images/shapes_dataset/test/circle/0c211962-3c29-11f0-8e09-00155ddb6ef7.png"),
+        Image.open("images/shapes_dataset/test/circle/062656a8-3c29-11f0-8e09-00155ddb6ef7.png")
+    ]
+    x, y = get_batch_from_images(images, 0)
+    print(x.shape)
+    print(y.shape)
+
+
 if __name__ == "__main__":
-    test_img_same_after_centering()
+    test_get_batch_from_images()

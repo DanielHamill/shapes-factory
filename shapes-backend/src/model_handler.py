@@ -17,10 +17,10 @@ from torchmetrics.classification import Accuracy
 from torchvision import datasets, transforms
 from transformers import AutoImageProcessor, SiglipForImageClassification
 
-from image_utils import model_transforms
+from image_utils import model_transforms, get_batch_from_images
 
 MODEL_LIFETIME = 10 * 60
-# MODEL_LIFETIME = 10 
+# MODEL_LIFETIME = 10
 
 # geometric shapes classifier from: https://huggingface.co/prithivMLmods/Geometric-Shapes-Classification
 labels = [
@@ -82,10 +82,11 @@ class DenseModel(L.LightningModule):
         self.acc = Accuracy(task="multiclass", num_classes=output_size)
         self.automatic_optimization = False
         self.val_step_counter = 0
-        self.seen = [[], []]
+        self.seen = [[]] * output_size
         self.additional_imgs_during_training = additional_imgs_during_training
-        self.batch_size = (batch_size,)
+        self.batch_size = batch_size
         self.num_batches = num_batches
+        self.num_categories = output_size
 
         val_dataset = datasets.ImageFolder(
             root="./images/shapes_dataset/test", transform=model_transforms["val"]
@@ -187,82 +188,57 @@ class DenseModel(L.LightningModule):
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=0.001)
 
-    def _get_batch_from_image(self, image, category, n=100):
-        x = torch.stack([model_transforms["train"](image) for _ in range(n)])
-        y = torch.full((n,), category, dtype=torch.long)
-        return x, y
-
     def _merge_batches(self, batches):
         xs, ys = zip(*batches)  # unzip into two lists
         merged_x = torch.cat(xs, dim=0)
         merged_y = torch.cat(ys, dim=0)
         return merged_x, merged_y
 
-    def online_training_step(self, batch):
-        # batch = self._get_batch_from_image(image, category, n=200)
+    def _online_training_step(self, batch):
+        """Perform one online training step."""
+
         optimizer = self.configure_optimizers()
         loss = self.training_step(batch, 0)
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
 
-    def _get_additional_images(self, category):
+    def _get_images_for_category(self, category, n):
+        """Get additional images from category that have been seen before to assist with training."""
 
-        other = 1 - category
+        if len(self.seen[category]) <= n:
+            return self.seen[category]
+        return random.sample(self.seen[category], k=n)
+    
 
-        # if len(seen[other]) == 0:
-        #     return None
-
-        other_num_imgs = self.additional_imgs_during_training // 2 + 1
-        same_num_imgs = self.additional_imgs_during_training // 2
-
-        other_imgs = (
-            self.seen[other]
-            if len(self.seen[other]) <= other_num_imgs
-            else random.sample(self.seen[other], k=other_num_imgs)
-        )
-        same_imgs = (
-            self.seen[category]
-            if len(self.seen[category]) <= same_num_imgs
-            else random.sample(self.seen[category], k=same_num_imgs)
-        )
-        return other_imgs, same_imgs
 
     def train_online(self, image_b64, category):
-        other = 1 - category
-        additional_imgs = 3
-        batch_size = 500
+        """Perform online training with an image."""
         num_batches = 1
-        batch_size_per_image = batch_size // (additional_imgs + 1)
-        other_imgs, same_imgs = self._get_additional_images(category)
+        images_per_cat = self.additional_imgs_during_training // self.num_categories
+        batch_size_per_category = (
+            self.batch_size // self.num_categories
+        )
+        train_images = [
+            self._get_images_for_category(category, images_per_cat)
+            for category in range(self.num_categories)
+        ]
+        if len(train_images[category]) < images_per_cat:
+            train_images[category].append(image_b64)
+        else:
+            train_images[category][0] = image_b64
+
         for _ in range(num_batches):
-            batches = (
-                [
-                    self._get_batch_from_image(
-                        Image.open(BytesIO(base64.b64decode(image))),
-                        other,
-                        n=batch_size_per_image,
-                    )
-                    for image in other_imgs
-                ]
-                + [
-                    self._get_batch_from_image(
-                        Image.open(BytesIO(base64.b64decode(image))),
-                        category,
-                        n=batch_size_per_image,
-                    )
-                    for image in same_imgs
-                ]
-                + [
-                    self._get_batch_from_image(
-                        Image.open(BytesIO(base64.b64decode(image_b64))),
-                        category,
-                        n=batch_size_per_image,
-                    )
-                ]
-            )
+            batches = [
+                get_batch_from_images(
+                    [Image.open(BytesIO(base64.b64decode(img))) for img in cat_images],
+                    cat,
+                    n=batch_size_per_category,
+                )
+                for cat, cat_images in enumerate(train_images)
+            ]
             batch = self._merge_batches(batches)
-            self.online_training_step(batch)
+            self._online_training_step(batch)
         # self.run_validation(self.val_dataset)
         self.seen[category].append(image_b64)
         self.val_step_counter += 1
@@ -287,7 +263,7 @@ class ModelHandler:
         else:
             print(f"Creating new model for user {user_id}")
             self.models[user_id] = DenseModel(
-                image_size=20, hidden_layer1_size=200, output_size=2
+                image_size=20, hidden_layer1_size=200, output_size=3
             )
             asyncio.create_task(self.delete_model_after_delay(user_id, MODEL_LIFETIME))
             return self.models[user_id]
@@ -309,7 +285,7 @@ class ModelHandler:
                 model(model_transforms["val"](image_data))[0], dim=-1
             )
         label = torch.argmax(prediction).tolist()
-        confidence = 200 * (float(torch.max(prediction)) - 0.5)
+        confidence = 200 * (float(torch.max(prediction)) - 0.33)
         # TODO: change confidence computation if not 2 classes
 
         # loss, (acc, acc0, acc1) = self.model.run_validation(self.model.val_dataset)

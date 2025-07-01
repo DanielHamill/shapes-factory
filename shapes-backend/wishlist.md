@@ -1,0 +1,35 @@
+Features I want for this project:
+- CI System
+    - pull request -> github actions -> cloud run
+    - stretch goal: non-managed kubernetes: google kubernetes engine
+    - alternative: use docker compose to save money?
+- tests
+    - convert existing tests to pytest
+    - write unit, integration, and smoke tests
+    - automate testing and include in CI system
+- become stateless -> REST compliance
+    - store model state in database not memory
+- more core functionality
+    - data ingestion pipeline
+        - pub/sub to dataflow/some pub sub ingestion service
+        - SQL/structured database for storing requests/shapes
+        - allow users to access saved shapes for something
+    - other model architectures
+        - CNN model
+        - model picker
+        - model editor
+            - lots of frontend stuff
+        - user input for class/shape names
+    - train more than 2 classes
+    - model benchmarking
+        - allow users to create test sets with their own images or images other people created and evaluate model performance
+- general improvements:
+    - better type hinting
+    - docstrings
+    - data/type validation (pydantic)
+    - make DenseModel less messy
+    - proper logging
+- machine learning stuff 
+    - Dense model improvements
+        - accelerate training, parallelize whenever possible
+        - train in background job

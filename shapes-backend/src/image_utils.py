@@ -77,3 +77,10 @@ model_transforms = {
         transforms.ToTensor(),                        # Converts        to tensor (shape: [1, H, W])
     ])
 }
+
+def get_batch_from_images(images: list, category, transforms=model_transforms["train"], n=100):
+    """Get a batch of images with random transforms from a list of images."""
+    batch_per_image = n // len(images)
+    x = torch.stack([transforms(image) for _ in range(batch_per_image) for image in images])
+    y = torch.full((len(x),), category, dtype=torch.long)
+    return x, y

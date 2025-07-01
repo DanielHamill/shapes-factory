@@ -53,7 +53,7 @@ def load_model():
     val_dataset = datasets.ImageFolder(root="./images/shapes_dataset/test", transform=val_transform)
     val_dataloader = DataLoader(val_dataset, batch_size=4, shuffle=False, num_workers=3)
 
-    model = DenseModel(image_size=20, hidden_layer1_size=200, output_size=2)
+    model = DenseModel(image_size=20, hidden_layer1_size=200, output_size=3)
 
     mlf_logger = MLFlowLogger(
         experiment_name="lightning_logs",
@@ -94,52 +94,15 @@ def test_train_online():
     dataset_root = "./images/shapes_dataset/train"
     circles = [f"{dataset_root}/circle/{filename}" for filename in os.listdir(f"{dataset_root}/circle")]
     triangles = [f"{dataset_root}/triangle/{filename}" for filename in os.listdir(f"{dataset_root}/triangle")]
+    squares = [f"{dataset_root}/square/{filename}" for filename in os.listdir(f"{dataset_root}/square")]
 
     mlflow.set_tracking_uri("file:./ml-runs")  # if needed
     mlflow.set_experiment("my_experiment_name")  # optional
 
-    # with mlflow.start_run(run_name="validate_multiple_times") as run:
-    # You can log params here too if needed
 
-    # i = 0
-    # seen = [[],[]]
-
-    # additional_imgs = 1
-
-    # def get_additional_images(category):
-            
-    #     other = 1 - category
-
-    #     # if len(seen[other]) == 0:
-    #     #     return None
-        
-    #     other_num_imgs = additional_imgs // 2 + 1
-    #     same_num_imgs = additional_imgs // 2
-
-    #     other_imgs = seen[other] if len(seen[other]) <= other_num_imgs else random.sample(seen[other], k=other_num_imgs)
-    #     same_imgs = seen[category] if len(seen[category]) <= same_num_imgs else random.sample(seen[category],k=same_num_imgs)
-    #     return other_imgs, same_imgs
-
-
-    for images in tqdm.tqdm(zip(circles, triangles)):
+    for images in tqdm.tqdm(zip(circles, triangles, squares)):
         for category, image in enumerate(images):
-            # other = 1 - category
-            # additional_imgs = 3
-            # batch_size = 500
-            # num_batches = 1
-            # batch_size_per_image = batch_size // (additional_imgs+1)
-            # other_imgs, same_imgs = get_additional_images(category)
-            # for b in range(num_batches):
-            #     batches = [model._get_batch_from_image(Image.open(image), other, n=batch_size_per_image) for image in other_imgs] + \
-            #         [model._get_batch_from_image(Image.open(image), category, n=batch_size_per_image) for image in same_imgs] + \
-            #         [model._get_batch_from_image(Image.open(image), category, n=batch_size_per_image)]
-            #     batch = model._merge_batches(batches)
-
-            #     model.custom_step = i
-            #     model.online_train(batch)
-            # model.run_validation(val_dataloader)
-            # seen[category].append(image)
-            # i += 1
+          
             with open(image, "rb") as image_file:
                 encoded_string = base64.b64encode(image_file.read())
             model.train_online(encoded_string, category)
