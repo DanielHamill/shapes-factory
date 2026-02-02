@@ -4,6 +4,7 @@
   "private": false,
   "homepage": "https://DanielHamill.github.io/shapes-factory",
   "dependencies": {
+    "@radix-ui/themes": "^3.3.0",
     "@ramonak/react-progress-bar": "^5.4.0",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "^6.6.3",
