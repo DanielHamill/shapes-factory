@@ -1,4 +1,3 @@
-import { useRef } from "react";
 import { ReactSketchCanvas } from "react-sketch-canvas";
 import { Card, Flex, Heading } from "@radix-ui/themes";
 
@@ -7,9 +6,7 @@ const styles = {
   borderRadius: "0px",
 };
 
-export default function DrawingCanvas() {
-  const canvasRef = useRef();
-
+export default function DrawingCanvas({ canvasRef }) {
   return (
     <Card Shadow="6">
         <Flex direction="column" gap="4" padding="4" align="center">
